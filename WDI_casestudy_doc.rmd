@@ -1,0 +1,368 @@
+---
+title: "Sling Data Analysis Challenge"
+author: "Keerthi Pushparajan"
+date: "December 03, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## World Bank Development Indicators
+
+The challenge is to look at World Bank development indicators data and analyze how the age distribution of the population of a country is related to certain other indicators
+
+```{r Loading Libraries, echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
+library(dplyr)
+library(reshape2)
+```
+
+# Reading data and subsetting for required columns and rows
+World Development Indicators data along with the descriptions of the fields are available on the World Bank website. To download, go to "Data and Resources" tab and select CSV. For population age distribution, see the indicators starting with SP.POP. Mobile phone adoption is available as IT.CEL.SETS.P2 and fixed telephone as IT.MLT.MAIN.P2. For GDP, you could use the indicator NY.GDP.PCAP.PP.CD.
+```{r Read Data}
+temp<-tempfile()
+download.file("http://databank.worldbank.org/data/download/WDI_csv.zip",temp)
+WDIData<-read.csv(unz(temp,"WDIData.csv"))
+unlink(temp)
+WDIData1<-subset(WDIData,select = c(1,2,3,4,61))
+colnames(WDIData1)<-c("CountryName","CountryCode","IndicatorName","IndicatorCode","2016")
+rm(WDIData)
+
+WDIData2<-dplyr::filter(WDIData1, grepl('SP.POP', WDIData1$IndicatorCode) | WDIData1$IndicatorCode == c("IT.CEL.SETS.P2","IT.MLT.MAIN.P2","NY.GDP.PCAP.PP.CD"))
+rm(WDIData1)
+```
+
+# Transposing data into the required format
+Modifying the data to be at a country level with all the required indicators present across columns
+```{r Transposing columns}
+WDIData3<-dcast(melt(WDIData2), CountryName + CountryCode ~ IndicatorName, value.var="value")
+nrow(WDIData3)
+```
+
+# Cleaning the data to get legitimate countries
+The number of countries is more than the total number of countries as it includes World and other such combination of countries. Hence filtering the data for legitimate countries.
+
+```{r Getting Legit countries}
+# Downloaded the list of countries and their country codes and creating a dataframe
+countries<-structure(list(Country = structure(c(1L, 2L, 3L, 4L, 5L, 6L, 
+7L, 8L, 9L, 10L, 11L, 12L, 13L, 14L, 15L, 16L, 17L, 18L, 19L, 
+20L, 21L, 22L, 23L, 24L, 25L, 26L, 27L, 28L, 29L, 30L, 31L, 32L, 
+33L, 34L, 35L, 36L, 37L, 38L, 39L, 40L, 41L, 42L, 43L, 93L, 122L, 
+44L, 45L, 46L, 47L, 48L, 49L, 50L, 51L, 52L, 53L, 54L, 55L, 56L, 
+57L, 58L, 59L, 60L, 61L, 62L, 63L, 64L, 65L, 66L, 67L, 68L, 69L, 
+70L, 71L, 72L, 73L, 74L, 75L, 76L, 77L, 78L, 79L, 80L, 81L, 82L, 
+83L, 84L, 85L, 86L, 87L, 88L, 89L, 90L, 91L, 92L, 94L, 95L, 96L, 
+97L, 98L, 99L, 100L, 101L, 102L, 103L, 104L, 105L, 106L, 107L, 
+108L, 109L, 110L, 111L, 112L, 113L, 114L, 115L, 116L, 117L, 118L, 
+119L, 120L, 121L, 123L, 124L, 125L, 126L, 127L, 128L, 129L, 130L, 
+131L, 132L, 133L, 134L, 135L, 136L, 137L, 138L, 139L, 140L, 141L, 
+142L, 143L, 144L, 145L, 146L, 147L, 148L, 149L, 150L, 151L, 152L, 
+153L, 154L, 155L, 156L, 157L, 158L, 159L, 160L, 161L, 162L, 163L, 
+164L, 165L, 166L, 167L, 168L, 169L, 170L, 171L, 173L, 172L, 174L, 
+175L, 176L, 177L, 179L, 180L, 181L, 178L, 182L, 183L, 184L, 185L, 
+186L, 187L, 188L, 189L, 190L, 191L, 192L, 193L, 194L, 195L, 196L, 
+197L, 198L, 199L, 200L, 201L, 202L, 203L, 204L, 205L, 206L, 207L, 
+208L, 209L, 210L, 211L, 212L, 213L, 214L, 215L, 216L, 217L, 218L, 
+219L, 220L, 221L, 222L, 223L, 224L, 225L, 226L, 227L, 228L, 229L, 
+230L, 231L, 232L, 233L, 234L, 235L, 236L), .Label = c("Afghanistan", 
+"Aland Islands", "Albania", "Algeria", "American Samoa", "Andorra", 
+"Angola", "Anguilla", "Antigua and Barbuda", "Argentina", "Armenia", 
+"Aruba", "Australia", "Austria", "Azerbaijan", "Bahamas", "Bahrain", 
+"Bangladesh", "Barbados", "Belarus", "Belgium", "Belize", "Benin", 
+"Bermuda", "Bhutan", "Bolivia", "Bosnia and Herzegovina", "Botswana", 
+"Brazil", "British Virgin Islands", "Brunei Darussalam", "Bulgaria", 
+"Burkina Faso", "Burundi", "Cambodia", "Cameroon", "Canada", 
+"Cape Verde", "Cayman Islands", "Central African Republic", "Chad", 
+"Chile", "China", "Colombia", "Comoros", "Congo", "Cook Islands", 
+"Costa Rica", "Côte d'Ivoire", "Croatia", "Cuba", "Cyprus", "Czech Republic", 
+"Democratic People's Republic of Korea", "Democratic Republic of the Congo", 
+"Denmark", "Djibouti", "Dominica", "Dominican Republic", "Ecuador", 
+"Egypt", "El Salvador", "Equatorial Guinea", "Eritrea", "Estonia", 
+"Ethiopia", "Faeroe Islands", "Falkland Islands (Malvinas)", 
+"Fiji", "Finland", "France", "French Guiana", "French Polynesia", 
+"Gabon", "Gambia", "Georgia", "Germany", "Ghana", "Gibraltar", 
+"Greece", "Greenland", "Grenada", "Guadeloupe", "Guam", "Guatemala", 
+"Guernsey", "Guinea", "Guinea-Bissau", "Guyana", "Haiti", "Holy See", 
+"Honduras", "Hong Kong Special Administrative Region of China", 
+"Hungary", "Iceland", "India", "Indonesia", "Iran, Islamic Republic of", 
+"Iraq", "Ireland", "Isle of Man", "Israel", "Italy", "Jamaica", 
+"Japan", "Jersey", "Jordan", "Kazakhstan", "Kenya", "Kiribati", 
+"Kuwait", "Kyrgyzstan", "Lao People's Democratic Republic", "Latvia", 
+"Lebanon", "Lesotho", "Liberia", "Libyan Arab Jamahiriya", "Liechtenstein", 
+"Lithuania", "Luxembourg", "Macao Special Administrative Region of China", 
+"Madagascar", "Malawi", "Malaysia", "Maldives", "Mali", "Malta", 
+"Marshall Islands", "Martinique", "Mauritania", "Mauritius", 
+"Mayotte", "Mexico", "Micronesia, Federated States of", "Moldova", 
+"Monaco", "Mongolia", "Montenegro", "Montserrat", "Morocco", 
+"Mozambique", "Myanmar", "Namibia", "Nauru", "Nepal", "Netherlands", 
+"Netherlands Antilles", "New Caledonia", "New Zealand", "Nicaragua", 
+"Niger", "Nigeria", "Niue", "Norfolk Island", "Northern Mariana Islands", 
+"Norway", "Occupied Palestinian Territory", "Oman", "Pakistan", 
+"Palau", "Panama", "Papua New Guinea", "Paraguay", "Peru", "Philippines", 
+"Pitcairn", "Poland", "Portugal", "Puerto Rico", "Qatar", "R_union", 
+"Republic of Korea", "Romania", "Russian Federation", "Rwanda", 
+"Saint-Barthélemy", "Saint-Martin (French part)", "Saint Helena", 
+"Saint Kitts and Nevis", "Saint Lucia", "Saint Pierre and Miquelon", 
+"Saint Vincent and the Grenadines", "Samoa", "San Marino", "Sao Tome and Principe", 
+"Saudi Arabia", "Senegal", "Serbia", "Seychelles", "Sierra Leone", 
+"Singapore", "Slovakia", "Slovenia", "Solomon Islands", "Somalia", 
+"South Africa", "Spain", "Sri Lanka", "Sudan", "Suriname", "Svalbard and Jan Mayen Islands", 
+"Swaziland", "Sweden", "Switzerland", "Syrian Arab Republic", 
+"Tajikistan", "Thailand", "The former Yugoslav Republic of Macedonia", 
+"Timor-Leste", "Togo", "Tokelau", "Tonga", "Trinidad and Tobago", 
+"Tunisia", "Turkey", "Turkmenistan", "Turks and Caicos Islands", 
+"Tuvalu", "Uganda", "Ukraine", "United Arab Emirates", "United Kingdom of Great Britain and Northern Ireland", 
+"United Republic of Tanzania", "United States of America", "United States Virgin Islands", 
+"Uruguay", "Uzbekistan", "Vanuatu", "Venezuela (Bolivarian Republic of)", 
+"Viet Nam", "Wallis and Futuna Islands", "Western Sahara", "Yemen", 
+"Zambia", "Zimbabwe"), class = "factor"), CountryCode = structure(c(2L, 
+5L, 6L, 59L, 12L, 7L, 3L, 4L, 13L, 10L, 11L, 1L, 14L, 15L, 16L, 
+24L, 23L, 21L, 32L, 27L, 18L, 28L, 19L, 29L, 34L, 30L, 25L, 35L, 
+31L, 227L, 33L, 22L, 20L, 17L, 112L, 42L, 37L, 48L, 51L, 36L, 
+206L, 39L, 40L, 91L, 128L, 46L, 47L, 44L, 45L, 49L, 41L, 93L, 
+50L, 52L, 53L, 174L, 43L, 57L, 55L, 56L, 58L, 60L, 61L, 192L, 
+83L, 62L, 65L, 66L, 71L, 69L, 68L, 67L, 70L, 88L, 178L, 73L, 
+81L, 75L, 54L, 77L, 78L, 84L, 86L, 85L, 80L, 89L, 87L, 76L, 79L, 
+82L, 90L, 94L, 224L, 92L, 95L, 102L, 98L, 96L, 100L, 101L, 99L, 
+97L, 103L, 104L, 105L, 108L, 106L, 107L, 109L, 110L, 113L, 116L, 
+111L, 117L, 127L, 118L, 124L, 119L, 120L, 122L, 125L, 126L, 133L, 
+149L, 150L, 134L, 138L, 139L, 136L, 147L, 145L, 148L, 151L, 135L, 
+72L, 132L, 131L, 142L, 141L, 146L, 130L, 144L, 140L, 152L, 162L, 
+161L, 159L, 8L, 153L, 163L, 157L, 154L, 156L, 158L, 155L, 143L, 
+160L, 177L, 164L, 165L, 170L, 166L, 171L, 176L, 168L, 169L, 167L, 
+172L, 175L, 173L, 179L, 115L, 180L, 181L, 182L, 183L, 26L, 188L, 
+114L, 121L, 129L, 195L, 225L, 232L, 193L, 197L, 184L, 186L, 196L, 
+203L, 191L, 187L, 199L, 200L, 190L, 194L, 234L, 64L, 123L, 185L, 
+198L, 189L, 202L, 201L, 38L, 204L, 209L, 208L, 137L, 212L, 207L, 
+210L, 213L, 214L, 215L, 216L, 211L, 205L, 217L, 219L, 220L, 9L, 
+74L, 218L, 222L, 228L, 221L, 223L, 230L, 226L, 229L, 231L, 63L, 
+233L, 235L, 236L), .Label = c("ABW", "AFG", "AGO", "AIA", "ALA", 
+"ALB", "AND", "ANT", "ARE", "ARG", "ARM", "ASM", "ATG", "AUS", 
+"AUT", "AZE", "BDI", "BEL", "BEN", "BFA", "BGD", "BGR", "BHR", 
+"BHS", "BIH", "BLM", "BLR", "BLZ", "BMU", "BOL", "BRA", "BRB", 
+"BRN", "BTN", "BWA", "CAF", "CAN", "CHE", "CHL", "CHN", "CIV", 
+"CMR", "COD", "COG", "COK", "COL", "COM", "CPV", "CRI", "CUB", 
+"CYM", "CYP", "CZE", "DEU", "DJI", "DMA", "DNK", "DOM", "DZA", 
+"ECU", "EGY", "ERI", "ESH", "ESP", "EST", "ETH", "FIN", "FJI", 
+"FLK", "FRA", "FRO", "FSM", "GAB", "GBR", "GEO", "GGY", "GHA", 
+"GIB", "GIN", "GLP", "GMB", "GNB", "GNQ", "GRC", "GRD", "GRL", 
+"GTM", "GUF", "GUM", "GUY", "HKG", "HND", "HRV", "HTI", "HUN", 
+"IDN", "IMN", "IND", "IRL", "IRN", "IRQ", "ISL", "ISR", "ITA", 
+"JAM", "JEY", "JOR", "JPN", "KAZ", "KEN", "KGZ", "KHM", "KIR", 
+"KNA", "KOR", "KWT", "LAO", "LBN", "LBR", "LBY", "LCA", "LIE", 
+"LKA", "LSO", "LTU", "LUX", "LVA", "MAC", "MAF", "MAR", "MCO", 
+"MDA", "MDG", "MDV", "MEX", "MHL", "MKD", "MLI", "MLT", "MMR", 
+"MNE", "MNG", "MNP", "MOZ", "MRT", "MSR", "MTQ", "MUS", "MWI", 
+"MYS", "MYT", "NAM", "NCL", "NER", "NFK", "NGA", "NIC", "NIU", 
+"NLD", "NOR", "NPL", "NRU", "NZL", "OMN", "PAK", "PAN", "PCN", 
+"PER", "PHL", "PLW", "PNG", "POL", "PRI", "PRK", "PRT", "PRY", 
+"PSE", "PYF", "QAT", "REU", "ROU", "RUS", "RWA", "SAU", "SDN", 
+"SEN", "SGP", "SHN", "SJM", "SLB", "SLE", "SLV", "SMR", "SOM", 
+"SPM", "SRB", "STP", "SUR", "SVK", "SVN", "SWE", "SWZ", "SYC", 
+"SYR", "TCA", "TCD", "TGO", "THA", "TJK", "TKL", "TKM", "TLS", 
+"TON", "TTO", "TUN", "TUR", "TUV", "TZA", "UGA", "UKR", "URY", 
+"USA", "UZB", "VAT", "VCT", "VEN", "VGB", "VIR", "VNM", "VUT", 
+"WLF", "WSM", "YEM", "ZAF", "ZMB", "ZWE"), class = "factor")), .Names = c("Country", 
+"CountryCode"), class = "data.frame", row.names = c(NA, -236L
+))
+```
+
+```{r Subset for Legit countries}
+#Merging with the dataset to subset for the countries
+WDIData4<-merge(WDIData3,countries,by="CountryCode")
+nrow(WDIData4)
+```
+
+# Question 1
+# Consider the age distribution ie the fractions of the population that fall into each age bin of the population of each country. Do you see any outlier countries with respect to the age mix of the population in the year 2016?
+
+```{r Q1}
+#Going through the columns to select the columns to be used for age distribution
+colnames(WDIData4)
+
+# Subset for required columns
+WDIdata5<-subset(WDIData4,select = c(1,2,14,26,54,66))
+
+#Removing countries with no poulation
+WDIData6<-na.omit(WDIdata5)
+nrow(WDIData6)
+
+#Finding the age distribution of all the countries into these 3 age buckets
+WDIData6$perc_14<-WDIData6$`Population ages 0-14, total`/WDIData6$`Population, total`
+WDIData6$perc_64<-WDIData6$`Population ages 15-64, total`/WDIData6$`Population, total`
+WDIData6$perc_65_above<-WDIData6$`Population ages 65 and above, total`/WDIData6$`Population, total`
+
+#Calcaulating the age distribution across all the countries put together
+WDIData6$total_perc_14<-sum(WDIData6$`Population ages 0-14, total`)/sum(WDIData6$`Population, total`)
+WDIData6$total_perc_64<-sum(WDIData6$`Population ages 15-64, total`)/sum(WDIData6$`Population, total`)
+WDIData6$total_perc_65_above<-sum(WDIData6$`Population ages 65 and above, total`)/sum(WDIData6$`Population, total`)
+
+#Indexing the country's age distribution with the World population
+WDIData6$index_14<-WDIData6$perc_14/WDIData6$total_perc_14
+WDIData6$index_64<-WDIData6$perc_64/WDIData6$total_perc_64
+WDIData6$index_65_above<-WDIData6$perc_65_above/WDIData6$total_perc_65_above
+
+#Filtering out countries with lesser population as it will have a skewed distribution of population
+quartile_25<-summary(WDIData6$`Population, total`)[2]
+
+WDIData7<-WDIData6[which(WDIData6$`Population, total` >= quartile_25),]
+nrow(WDIData7)
+
+#Removed 48 countries with lesser population
+
+#Looking at the distribution of the age group indices
+summary(WDIData7$index_14)
+summary(WDIData7$index_64)
+summary(WDIData7$index_65_above)
+
+#Creating a data frame with the countries which over index in each of the age groups compared to all the countries
+Age_Mix_Outliers<-data.frame(c(1,2,3,4,5))
+Age_Mix_Outliers$Under_14_overindex<-WDIData7[order(WDIData7$index_14,decreasing=T)[1:5],2]
+Age_Mix_Outliers$above_14_under_64_overindex<-WDIData7[order(WDIData7$index_64,decreasing=T)[1:5],2]
+Age_Mix_Outliers$above_65_overindex<-WDIData7[order(WDIData7$index_65_above,decreasing=T)[1:5],2]
+
+#Adding the countries which under indexed in each age group bucket
+Age_Mix_Outliers$Under_14_underindex<-WDIData7[order(WDIData7$index_14,decreasing=F)[1:5],2]
+Age_Mix_Outliers$above_14_under_64_underindex<-WDIData7[order(WDIData7$index_64,decreasing=F)[1:5],2]
+Age_Mix_Outliers$above_65_underindex<-WDIData7[order(WDIData7$index_65_above,decreasing=F)[1:5],2]
+
+Age_Mix_Outliers[1]<-NULL
+knitr::kable(Age_Mix_Outliers, format = "html")
+
+
+#Creating a common list of countries which either under indexed or over indexed in any one of the age group distributions
+Age_Mix_Outlier1<-as.data.frame(union(union(union(union(union(Age_Mix_Outliers$Under_14_overindex,Age_Mix_Outliers$above_14_under_64_overindex),Age_Mix_Outliers$above_65_overindex),Age_Mix_Outliers$Under_14_underindex),Age_Mix_Outliers$above_14_under_64_underindex),Age_Mix_Outliers$above_65_underindex))
+colnames(Age_Mix_Outlier1)<-"Country"
+
+knitr::kable(Age_Mix_Outlier1, format = "html")
+```
+
+#Question 2
+#Which countries show the largest difference between the age distributions of male and female populations in 2016?
+
+```{r Q2}
+q2_1<-subset(WDIData4,select = c(1,2,10,22,50,62,12,24,52,64,66))
+
+#Calculating the age distribution of female population
+q2_1$perc_14_f<-q2_1$`Population ages 0-14, female`/q2_1$`Population, female`
+q2_1$perc_64_f<-q2_1$`Population ages 15-64, female`/q2_1$`Population, female`
+q2_1$perc_65_above_f<-q2_1$`Population ages 65 and above, female`/q2_1$`Population, female`
+
+#Calculating the age distribution of male population
+q2_1$perc_14_m<-q2_1$`Population ages 0-14, male`/q2_1$`Population, male`
+q2_1$perc_64_m<-q2_1$`Population ages 15-64, male`/q2_1$`Population, male`
+q2_1$perc_65_above_m<-q2_1$`Population ages 65 and above, male`/q2_1$`Population, male`
+
+#Removing NAs
+q2_2<-na.omit(q2_1)
+
+#Filtering out countries with lesser population
+quartile_25_q2<-summary(q2_2$`Population, total`)[2]
+q2_2<-q2_2[which(q2_2$`Population, total` >= quartile_25_q2),]
+
+# Calculating the percentage distribution in male and female population in age group
+q2_2$perc_14_diff<-abs(q2_2$perc_14_f-q2_2$perc_14_m)
+q2_2$perc_64_diff<-abs(q2_2$perc_64_f-q2_2$perc_64_m)
+q2_2$perc_65_above_diff <- abs(q2_2$perc_65_above_f - q2_2$perc_65_above_m)
+
+
+# Getting the countries with highest differences in age distribution of male and female
+Male_Female_Age_dist_difference<-data.frame(c(1,2,3,4,5))
+Male_Female_Age_dist_difference$top_14_diff_dist<-q2_2[order(q2_2$perc_14_diff,decreasing=T)[1:5],][2]
+Male_Female_Age_dist_difference$top_64_diff_dist<-q2_2[order(q2_2$perc_64_diff,decreasing=T)[1:5],][2]
+Male_Female_Age_dist_difference$top_65_above_diff_dist<-q2_2[order(q2_2$perc_65_above_diff,decreasing=T)[1:5],][2]
+
+Male_Female_Age_dist_difference[1]<-NULL
+
+## Overall Male and female population difference to check which countries have a male/female dominant population
+q2_2_1<-subset(q2_2,select = c(1,2,6,10))
+
+q2_2_1$sex_ratio_actual<-q2_2_1$`Population, male`/q2_2_1$`Population, female`
+
+summary(q2_2_1$sex_ratio_actual)
+
+Sex_Ratio<-data.frame(c(1,2,3,4,5))
+Sex_Ratio$male_dominance<-q2_2_1[order(q2_2_1$sex_ratio_actual,decreasing=T)[1:5],][2]
+Sex_Ratio$female_dominance<-q2_2_1[order(q2_2_1$sex_ratio_actual,decreasing=F)[1:5],][2]
+Sex_Ratio[1]<-NULL
+
+#Female dominant countries have the highest difference because of the 65 and above age group population 
+#The high difference in every other age group can be attributed to the male dominance of that country
+
+```
+
+
+# Question 3 
+#Do you see an association b/w age distribution of population and mobile phone adoption? 
+
+```{r Q3}
+
+q3_1<-subset(WDIData4,select = c(1,2,6,8,14,26,54,66))
+colnames(q3_1)<-c("code","country","fixedline","mobile","pop_0_14","pop_15_64","pop_65_above","tot_pop")
+
+#Filtering out countries with lesser population
+quartile_25_q3<-summary(q3_1$tot_pop)[2]
+
+q3_2<-q3_1[which(q3_1$tot_pop >= quartile_25_q3),]
+
+#Removing fixed line column
+q3_3<-subset(q3_2,select = c(1,2,4,5,6,7,8))
+
+# Removing countries without mobile_phone_adoption or population
+q3_4<-na.omit(q3_3)
+
+#Calculating age group percentage distribution
+q3_4$pop_0_14_perc<-(q3_4$pop_0_14/q3_4$tot_pop)*100
+q3_4$pop_15_64_perc<-(q3_4$pop_15_64/q3_4$tot_pop)*100
+q3_4$pop_65_above_perc<-(q3_4$pop_65_above/q3_4$tot_pop)*100
+
+
+require("car")
+#Running a linear regression model with the mobile phone adoption as the dependant variable and the age group distributions as the independant variable
+model<-lm(mobile~pop_0_14_perc+pop_15_64_perc+pop_65_above_perc,data=q3_4)
+
+#Beta values
+result_beta_temp<-data.frame(summary(model)$coefficients[,1])
+
+result_beta<-result_beta_temp[2:nrow(result_beta_temp),]
+result_beta
+# Beta values are coming up to be very high, implying that the age group distribution has no effect on the mobile phone adoption
+
+q3_5<-subset(q3_4,select=c(3,8,9,10))
+cor(q3_5)
+
+## There is no correlation or association between mobile adoption and age distribution
+```
+
+#How about fixed telephone subscription?
+```{r Q3_1}
+q3_2_1<-subset(q3_2,select = c(1,2,3,5,6,7,8))
+
+# Removing countries without fixed_line_adoption or population
+q3_2_2<-na.omit(q3_2_1)
+
+#Calculating age group percentage distribution
+q3_2_2$pop_0_14_perc<-(q3_2_2$pop_0_14/q3_2_2$tot_pop)*100
+q3_2_2$pop_15_64_perc<-(q3_2_2$pop_15_64/q3_2_2$tot_pop)*100
+q3_2_2$pop_65_above_perc<-(q3_2_2$pop_65_above/q3_2_2$tot_pop)*100
+
+
+
+model<-lm(fixedline~pop_0_14_perc+pop_15_64_perc+pop_65_above_perc,data=q3_2_2)
+
+#Beta values
+result_beta_temp<-data.frame(summary(model)$coefficients[,1])
+
+
+result_beta<-result_beta_temp[2:nrow(result_beta_temp),]
+result_beta
+# The age distribution has no effect on the fixed line adoption as well
+
+q3_2_3<-subset(q3_2_2,select=c(3,8,9,10))
+correlation_result<-cor(q3_2_3)
+correlation_result
+
+```
+
+There is no association between mobile or fixed line adoption and the age group distribution
